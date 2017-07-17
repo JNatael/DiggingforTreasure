@@ -232,7 +232,7 @@ vector<point> grahams_scan(vector<point> points) {
         if (this_point.y < lowest_y_point.y) { lowest_y_point = this_point; }
         //If it has the same y, use the lower x
         if (this_point.y == lowest_y_point.y && this_point.x < lowest_y_point.x) { lowest_y_point = this_point; }
-    }
+    } 
 
 
 }
