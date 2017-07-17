@@ -3,6 +3,7 @@
 #include <vector>
 #include <stack>
 #include <math.h>
+#include <iomanip>
 using namespace std;
 
 /*
@@ -91,7 +92,7 @@ Point nextToTop(stack<Point> &S) {
 }
 
 // A utility function to swap two points
-int swap(Point &p1, Point &p2) {
+void swap(Point &p1, Point &p2) {
     Point temp = p1;
     p1 = p2;
     p2 = temp;
@@ -173,9 +174,11 @@ vector<Point> convexHull(Point points[], int n) {
         m++;  // Update size of modified array
     }
 
+
+    vector<Point> output_points;
     // If modified array of points has less than 3 points,
-    // convex hull is not possible
-    if (m < 3) return;
+    // convex hull is not possible; return empty array
+    if (m < 3) return output_points;
 
     // Create an empty stack and push first three points
     // to it.
@@ -194,7 +197,7 @@ vector<Point> convexHull(Point points[], int n) {
         S.push(points[i]);
     }
 
-    vector<Point> output_points;
+    
     // Now stack has the output points, print contents of stack
     while (!S.empty()) {
         Point p = S.top();
@@ -229,13 +232,16 @@ int main() {
         vector<Point> hull_points = convexHull(points, n);
         //Code taken from similar code at https://gist.github.com/listochkin/1200393
         double area = 0.0;
-        for (int j = 0; j < hull_points.size() - 1; j++) {
-            int k = (j + 1) % hull_points.size();
-            area += hull_points[j].x * hull_points[k].y;
-            area -= hull_points[j].y * hull_points[k].x;
+        for (size_t j = 0; j < hull_points.size(); j++) {
+            size_t k = (j + 1) % hull_points.size();
+            area += hull_points[j].x * hull_points[k].y - hull_points[j].y * hull_points[k].x;
         }
 
+        area = fabs(area); //Actual area of the hull is half this, but depth is 2 so we skip that calc
+
         //Print output
+        std::cout << std::fixed;
+        std::cout << std::setprecision(1);
         std::cout << "Case #" << i << ": " << area << std::endl;
         
     }
