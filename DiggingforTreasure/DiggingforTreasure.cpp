@@ -1,7 +1,7 @@
 //Defines the entry point for the console application.
 #include <iostream>
 #include <vector>
-#include <stdexcept>
+#include <stack>
 #include <math.h>
 using namespace std;
 
@@ -61,180 +61,147 @@ double det(int n, double mat[10][10]) {
     return d;
 }
 
-struct point {
+struct Point {
     double x;
     double y;
 
     //Add back default constructor
-    point() = default;
+    Point() = default;
 
     //Constructor
-    point(double x_in, double y_in) :x(x_in), y(y_in) {};
+    Point(double x_in, double y_in) :x(x_in), y(y_in) {};
 
     //Copy constructor
-    point(const point& input) :x(input.x), y(input.y) {};
+    Point(const Point& input) :x(input.x), y(input.y) {};
 };
 
-//Point addition function
-point point_add(const point& input, double add_x, double add_y) {
-    double new_x = input.x + add_x;
-    double new_y = input.y + add_y;
-    point new_point(new_x, new_y);
-    return new_point;
+
+//Taken from http://www.geeksforgeeks.org/convex-hull-set-2-graham-scan/
+// A globle point needed for  sorting points with reference
+// to  the first point Used in compare function of qsort()
+Point p0;
+
+// A utility function to find next to top in a stack
+Point nextToTop(stack<Point> &S) {
+    Point p = S.top();
+    S.pop();
+    Point res = S.top();
+    S.push(p);
+    return res;
 }
 
-struct line {
-    point start_point;
-    point end_point;
-    bool segment;
-
-    //Constructor
-    line(point start_in, point end_in, bool seg_in) :start_point(start_in), end_point(end_in), segment(seg_in) {};
-
-    //Copy constructor
-    line(const line& input) :start_point(input.start_point), end_point(input.end_point), segment(input.segment) {};
-};
-
-//Line addition function
-line line_add(const line& input, double add_x, double add_y) {
-    point new_start = point_add(input.start_point, add_x, add_y);
-    point new_end = point_add(input.end_point, add_x, add_y);
-    line new_line(new_start, new_end, input.segment);
-    return new_line;
+// A utility function to swap two points
+int swap(Point &p1, Point &p2) {
+    Point temp = p1;
+    p1 = p2;
+    p2 = temp;
 }
 
-/* Find the intersection point of two lines
-Each line is input as a struct of two points
-The return value is a single intersection point,x1,y1
-It also checks for parallel and throws and error when they are
-It also doesn't verify the intersection is on the segment if one of the lines is a segment*/
-point find_intersect_point(const line &first_line, const line &second_line) {
-    double ax, ay, bx, by, cx, cy, dx, dy;
-    ax = first_line.start_point.x;
-    ay = first_line.start_point.y;
-    bx = first_line.end_point.x;
-    by = first_line.end_point.y;
-    cx = second_line.start_point.x;
-    cy = second_line.start_point.y;
-    dx = second_line.end_point.x;
-    dy = second_line.end_point.y;
-    double x_numerator, y_numerator, x_denominator, y_denominator;
-
-    //Check for parallel; return nothing if they are parallel
-    if ((by - ay)*(dx - cx) == (bx - ax)*(dy - cy)) { throw invalid_argument("lines are parallel"); }
-
-    x_numerator = (bx - ax)*(cx*dy - dx*cy) - (dx - cx)*(ax*by - bx*ay);
-    x_denominator = (by - ay)*(dx - cx) - (bx - ax)*(dy - cy);
-    y_numerator = (by - ay)*(cx*dy - dx*cy) - (dy - cy)*(ax*by - bx*ay);
-    y_denominator = (by - ay)*(dx - cx) - (bx - ax)*(dy - cy);
-
-    point intersect(-x_numerator / x_denominator, -y_numerator / y_denominator);
-    return intersect;
+// A utility function to return square of distance
+// between p1 and p2
+double distSq(Point p1, Point p2) {
+    return (p1.x - p2.x)*(p1.x - p2.x) +
+        (p1.y - p2.y)*(p1.y - p2.y);
 }
 
-/*This function checks to see if the input point is on the input line segment
-It assumes the point is on the line at least already (if not in the segment)*/
-bool point_on_line_in_line_segment(const line &line_to_check, const  point &point_to_check) {
-    bool x_in_segment = false, y_in_segment = false;
-    //If x is between the line segment points (check in both directions, as we don't know whether start or end point is bigger)
-    if (point_to_check.x <= line_to_check.end_point.x && point_to_check.x >= line_to_check.start_point.x) { x_in_segment = true; }
-    if (point_to_check.x <= line_to_check.start_point.x && point_to_check.x >= line_to_check.end_point.x) { x_in_segment = true; }
+// To find orientation of ordered triplet (p, q, r).
+// The function returns following values
+// 0 --> p, q and r are colinear
+// 1 --> Clockwise
+// 2 --> Counterclockwise
+int orientation(Point p, Point q, Point r) {
+    int val = (q.y - p.y) * (r.x - q.x) -
+        (q.x - p.x) * (r.y - q.y);
 
-    //Same check for y
-    if (point_to_check.y <= line_to_check.end_point.y && point_to_check.y >= line_to_check.start_point.y) { y_in_segment = true; }
-    if (point_to_check.y <= line_to_check.start_point.y && point_to_check.y >= line_to_check.end_point.y) { y_in_segment = true; }
-
-    //IF both x and y were in the segment return true, otherwise return false
-    if (x_in_segment && y_in_segment) {
-        return true;
-    }
-    else {
-        return false;
-    }
+    if (val == 0) return 0;  // colinear
+    return (val > 0) ? 1 : 2; // clock or counterclock wise
 }
 
-/* Checks if a line intersects a segment
-Note: If the line to check is also a segment, that will be checked as well
-*/
-bool line_intersects_segment(const line &line_to_check, const line &segment_to_check) {
-    //Find intersection of both assuming they're full lines
-    bool intersect;
-    point intersect_point;
-    try { //Try to find an intersect point
-        intersect_point = find_intersect_point(line_to_check, segment_to_check);
-        //Check to see if the intersect point is in the segment
-        intersect = point_on_line_in_line_segment(segment_to_check, intersect_point);
-    }
-    catch (invalid_argument& e) { //If lines are parallel error thrown, note no intersect point
-        intersect = false;
-    }
+// A function used by library function qsort() to sort an array of
+// points with respect to the first point
+int compare(const void *vp1, const void *vp2) {
+    Point *p1 = (Point *)vp1;
+    Point *p2 = (Point *)vp2;
 
+    // Find orientation
+    int o = orientation(p0, *p1, *p2);
+    if (o == 0)
+        return (distSq(p0, *p2) >= distSq(p0, *p1)) ? -1 : 1;
 
-    //If the first line isn't a segment or the above calculation returned false, return the above result
-    if (line_to_check.segment == false || intersect == false) {
-        return intersect;
-    }
-    else { //If the first line is a segment and we found an intersection, check to see if it is in the first segment too
-        bool intersect2 = point_on_line_in_line_segment(line_to_check, intersect_point);
-        return intersect2;
-    }
+    return (o == 2) ? -1 : 1;
 }
 
-bool ray_indicates_inside_polygon(line ray, vector<line> polygon_sides) {
-    int lines_crossed = 0;
-    for (line this_line : polygon_sides) {
-        if (line_intersects_segment(ray, this_line)) { lines_crossed++; } //If the ray and segment intersect, increment count of lines crossed
+// Finds convex hull of a set of n points.
+vector<Point> convexHull(Point points[], int n) {
+    // Find the bottommost point
+    int ymin = points[0].y, min = 0;
+    for (int i = 1; i < n; i++) {
+        int y = points[i].y;
+
+        // Pick the bottom-most or chose the left
+        // most point in case of tie
+        if ((y < ymin) || (ymin == y &&
+            points[i].x < points[min].x))
+            ymin = points[i].y, min = i;
     }
 
-    bool inside = false;
-    if (lines_crossed % 2 != 0) { inside = true; }
-    return inside;
-}
+    // Place the bottom-most point at first position
+    swap(points[0], points[min]);
 
-/*Implementation of the counter-clockwise function to check if a path going from point a to b to p is a left turn, right turn, or neither
-neither presumably being either 180 or 0 degrees (i.e. p is on the line)
-It's the equivalent of taking the determinant, which gives the volume of the area a-b-p
-It performs the check and returns true if it's left (i.e. Counter-Clockwise), false if right, and throws an invalid_argument error if on the line*/
-bool CCW(point a, point b, point p) {
-    double mat[10][10];
+    // Sort n-1 points with respect to the first point.
+    // A point p1 comes before p2 in sorted ouput if p2
+    // has larger polar angle (in counterclockwise
+    // direction) than p1
+    p0 = points[0];
+    qsort(&points[1], n - 1, sizeof(Point), compare);
 
-    //Input points
-    mat[0][0] = a.x;
-    mat[0][1] = b.x;
-    mat[0][2] = p.x;
-    mat[1][0] = a.y;
-    mat[1][1] = b.y;
-    mat[1][2] = p.y;
-    //Set last row to 1
-    for (int i = 0; i < 3; i++) {
-        mat[2][i] = 1;
+    // If two or more points make same angle with p0,
+    // Remove all but the one that is farthest from p0
+    // Remember that, in above sorting, our criteria was
+    // to keep the farthest point at the end when more than
+    // one points have same angle.
+    int m = 1; // Initialize size of modified array
+    for (int i = 1; i<n; i++) {
+        // Keep removing i while angle of i and i+1 is same
+        // with respect to p0
+        while (i < n - 1 && orientation(p0, points[i],
+            points[i + 1]) == 0)
+            i++;
+
+
+        points[m] = points[i];
+        m++;  // Update size of modified array
     }
 
-    //Calculate the determinant
-    double determinant = det(3, mat);
+    // If modified array of points has less than 3 points,
+    // convex hull is not possible
+    if (m < 3) return;
 
-    if (determinant = 0) {
-        throw invalid_argument("point p is on line");
+    // Create an empty stack and push first three points
+    // to it.
+    stack<Point> S;
+    S.push(points[0]);
+    S.push(points[1]);
+    S.push(points[2]);
+
+    // Process remaining n-3 points
+    for (int i = 3; i < m; i++) {
+        // Keep removing top while the angle formed by
+        // points next-to-top, top, and points[i] makes
+        // a non-left turn
+        while (orientation(nextToTop(S), S.top(), points[i]) != 2)
+            S.pop();
+        S.push(points[i]);
     }
-    if (determinant > 0) {
-        return true;
+
+    vector<Point> output_points;
+    // Now stack has the output points, print contents of stack
+    while (!S.empty()) {
+        Point p = S.top();
+        output_points.push_back(p);
+        S.pop();
     }
-    else {
-        return false;
-    }
-}
-
-vector<point> grahams_scan(vector<point> points) {
-    
-    //Find the point with the lowest y coordinate (and lowest x if multiple)
-    point lowest_y_point(points[0].x, points[0].y);
-    for (point this_point : points) {
-        if (this_point.y < lowest_y_point.y) { lowest_y_point = this_point; }
-        //If it has the same y, use the lower x
-        if (this_point.y == lowest_y_point.y && this_point.x < lowest_y_point.x) { lowest_y_point = this_point; }
-    } 
-
-
+    return output_points;
 }
 
 int main() {
@@ -251,23 +218,26 @@ int main() {
         long n = params[0];
 
         //Loop over inputs
-        vector<point> points;
+        Point points[1000];
         for (int j = 0; j < n; j++) {
             vector<int> this_point = readlineofints(2);
-            point x = {(double)this_point[0],(double)this_point[1]};
-            points.push_back(x);
+            Point x = {(double)this_point[0],(double)this_point[1]};
+            points[j] = x;
         }
 
-
-
+        //Get convex hull points
+        vector<Point> hull_points = convexHull(points, n);
+        //Code taken from similar code at https://gist.github.com/listochkin/1200393
+        double area = 0.0;
+        for (int j = 0; j < hull_points.size() - 1; j++) {
+            int k = (j + 1) % hull_points.size();
+            area += hull_points[j].x * hull_points[k].y;
+            area -= hull_points[j].y * hull_points[k].x;
+        }
 
         //Print output
-        if (possible) {
-            std::cout << "Case #" << i << ": jackpot" << std::endl;
-        }
-        else {
-            std::cout << "Case #" << i << ": too bad" << std::endl;
-        }
+        std::cout << "Case #" << i << ": " << area << std::endl;
+        
     }
     return 0;
 }
